@@ -43,7 +43,22 @@ class DiscountCode(Resource):
         return {"discount_code": new_code.discount_code}
 
 
+class UsersSharedData(Resource):
+    users_shared_data_parser = reqparse.RequestParser()
+    users_shared_data_parser.add_argument("company_id", type=int, required=True)
+
+    def get(self):
+        args = UsersSharedData.users_shared_data_parser.parse_args()
+        rows = db.session.query(
+            Discount.user_id,
+        ).distinct(Discount.user_id).filter(
+            Discount.company_id == args["company_id"],
+        ).all()
+        return {"user_ids": [row.user_id for row in rows]}
+
+
 api.add_resource(DiscountCode, "/discount_code")
+api.add_resource(UsersSharedData, "/users_shared_data")
 
 if __name__ == "__main__":
     app.run(debug=True)
