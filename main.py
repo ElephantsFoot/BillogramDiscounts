@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from flask import Flask
-from flask_restful import Resource, Api, reqparse
+from flask_restful import Resource, Api, reqparse, abort
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -43,6 +43,34 @@ class DiscountCode(Resource):
         return {"discount_code": new_code.discount_code}
 
 
+class UseDiscountCode(Resource):
+    use_discount_parser = reqparse.RequestParser()
+    use_discount_parser.add_argument("discount_code", type=str, required=True)
+    use_discount_parser.add_argument("company_id", type=int, required=True)
+    use_discount_parser.add_argument("user_id", type=int, required=True)
+
+    def post(self):
+        args = UseDiscountCode.use_discount_parser.parse_args()
+        discount: Discount = db.session.query(
+            Discount,
+        ).filter(
+            Discount.discount_code == args["discount_code"],
+        ).first()
+        if not discount:
+            abort(404, description="Discount not found")
+        print(discount)
+        print(discount.__dict__)
+        if discount.company_id != args["company_id"]:
+            abort(400, description="The discount is for another company")
+        if discount.user_id != args["user_id"]:
+            abort(400, description="The discount belongs to another user")
+        if discount.is_used:
+            abort(400, description="The discount has already been used")
+        discount.is_used = True
+        db.session.commit()
+        return {}
+
+
 class UsersSharedData(Resource):
     users_shared_data_parser = reqparse.RequestParser()
     users_shared_data_parser.add_argument("company_id", type=int, required=True)
@@ -58,6 +86,7 @@ class UsersSharedData(Resource):
 
 
 api.add_resource(DiscountCode, "/discount_code")
+api.add_resource(UseDiscountCode, "/use_discount_code")
 api.add_resource(UsersSharedData, "/users_shared_data")
 
 if __name__ == "__main__":
